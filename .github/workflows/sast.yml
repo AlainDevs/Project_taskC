@@ -22,7 +22,6 @@ jobs:
 
       - name: Run Bandit
         run: bandit -r webapp/
-
   semgrep:
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +45,6 @@ jobs:
         with:
           name: sast-scan-results
           path: sast_scan_results.json
-
   sonarcloud:
     needs: [bandit, semgrep]
     runs-on: ubuntu-latest
