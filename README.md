@@ -20,6 +20,7 @@ Our pipeline specifically incorporates three primary scanners, each serving a un
 *Blocked Pull Request (Branch Protection)*
 ![Blocked PR](placeholder_blocked_pr.png)
 
+
 ## Triage & Limitations
 While Static Application Security Testing (SAST) is essential, it has fundamental limitations. Specifically, SAST tools rely on pattern matching and lack deep understanding of business logic, leading to false positives. In DevSecOps theory, generating too many false positives creates **Alert Fatigue** and **Developer Friction**, potentially causing developers to ignore alerts or abandon the security pipeline altogether. Proper triage is critical to maintaining trust in the tooling.
 
