@@ -1,0 +1,7 @@
+rules:
+  - id: ban-hashlib-md5
+    pattern: hashlib.md5(...)
+    message: "Use of MD5 is considered insecure for cryptographic purposes. Use a stronger hashing algorithm like SHA-256."
+    languages:
+      - python
+    severity: ERROR
