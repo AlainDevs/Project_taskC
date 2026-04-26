@@ -18,7 +18,7 @@ jobs:
           python-version: '3.11'
 
       - name: install bandit
-        run: pip install bandit==1.7.5
+        run: pip install pbr bandit
 
       - name: run bandit (fail on HIGH severity)
         run: bandit -r webapp/ -f json -o bandit_results.json -ll
