@@ -3,31 +3,32 @@
 ## Pipeline Architecture
 The CI/CD pipeline leverages **GitHub Actions** to implement a proactive "Shift-Left" approach to security. Integrating security scans into the pull request process ensures that bad code is stopped before it merges into the main branch, which is a highly cost-effective strategy for identifying and fixing vulnerabilities early in the development lifecycle.
 
-This pipeline operationalises **NIST SSDF v1.1 PW.7.1** ("Determine whether code has security vulnerabilities using automated tools") and **PW.8.2** ("Scope testing… to the risk context"). The Bandit, Semgrep, and SonarCloud triad provides redundant coverage satisfying PW.7.2's requirement to use multiple analysis techniques.
+This pipeline operationalises **NIST SSDF v1.1 PW.7.1** ("Determine whether code has security vulnerabilities using automated tools") and **PW.8.2** ("Scope testing… to the risk context"). The Bandit, Semgrep, and SonarCloud triad provides redundant coverage satisfying PW.7.2's requirement to use multiple analysis techniques. Furthermore, pinning GitHub Actions to mutable tags introduces a supply chain risk into the pipeline itself; thus, all actions are strictly pinned to immutable SHA commit hashes to ensure a secure pipeline supply chain.
 
 To optimize the pipeline's performance, **parallel jobs** are utilized, adhering to the "Fail Fast" methodology. Running the primary security scanners concurrently reduces the overall wait time for developers, providing quicker feedback.
 
-The pipeline specifically incorporates three primary scanners:
-* **Bandit**: Chosen for fast Python Static Application Security Testing (SAST). It effectively targets Python-specific vulnerabilities and coding errors. The output is configured to export as JSON artifacts (`bandit_results.json`) to ensure findings are preserved.
+The pipeline specifically incorporates four primary security layers:
+* **Bandit**: Chosen for fast Python Static Application Security Testing (SAST). It effectively targets Python-specific vulnerabilities and coding errors. The build is configured to fail strictly on high-severity findings (`-ll`), acting as a robust security gate while minimizing lower-severity noise. The output is configured to export as JSON artifacts (`bandit_results.json`) to ensure findings are preserved.
 * **Semgrep**: Selected for fast OWASP Web SAST. It is highly effective at identifying common web vulnerabilities and enforcing secure coding standards rapidly.
-* **SonarCloud**: Integrated for deep historical analysis. It tracks overall code quality, technical debt, and provides comprehensive long-term security metrics. The GitHub Action is pinned to a specific SHA to mitigate supply-chain risks within the security pipeline itself.
+* **pip-audit (SCA)**: Added to provide Software Composition Analysis (SCA) for dependency vulnerability scanning. This layer verifies the components against a CVE database, seamlessly linking with the generation of the Software Bill of Materials (SBOM) in Task E to complete the scanning coverage.
+* **SonarCloud**: Integrated for deep historical analysis. It tracks overall code quality, technical debt, and provides comprehensive long-term security metrics.
 
-The SonarCloud job is configured with a `needs: [bandit, semgrep]` dependency. This enforces a 'Fail-Fast' pipeline architecture; if the fast, lightweight scanners detect critical OWASP violations, the pipeline immediately halts, saving expensive cloud compute minutes that would otherwise be wasted on deep historical analysis.
+The SonarCloud job is configured with a `needs: [bandit, semgrep, sca]` dependency. This enforces a 'Fail-Fast' pipeline architecture; if the fast, lightweight scanners detect critical OWASP violations or vulnerable dependencies, the pipeline immediately halts, saving expensive cloud compute minutes that would otherwise be wasted on deep historical analysis.
 
 ## Finding Triage Summary
 The SAST pipeline generated numerous findings. Below is a representative triage table detailing 10 distinct classifications from the scan results:
 
-| Finding | Count | CWE | Classification | Action |
-|---------|-------|-----|----------------|--------|
+| Finding | Count | CWE | Classification | Resolution |
+|---------|-------|-----|----------------|------------|
 | SQL Injection (`f-string` queries) | 16 | CWE-89 | **True Positive** | Remediated in Task D via parameterised queries. |
 | SQL Injection (Django rule on Flask) | 20 | CWE-89 | **False Positive (Framework mismatch)** | Rule to be disabled/ignored; requires tighter ruleset. |
 | XSS (Flask raw HTML concat) | 4 | CWE-79 | **True Positive** | Refactor to Jinja2 `render_template()`. |
 | XSS (Flask returned format string) | 4 | CWE-79 | **True Positive** | Refactor to Jinja2 `render_template()`. |
 | XSS (Django raw HTML format) | 1 | CWE-79 | **False Positive (Framework mismatch)** | Rule to be disabled/ignored. |
 | Flask `debug=True` | 1 | CWE-489 | **True Positive** | Gate via environment variable for production. |
-| Dockerfile missing `USER` | 1 | CWE-250 | **True Positive** | Add non-root `USER` directive. |
-| MD5 use (Semgrep built-in) | 1 | CWE-327 | **True Positive (Duplicate)** | Deduplicated with custom rule; replaced with SHA-256. |
-| MD5 use (Custom `ban-hashlib-md5`) | 1 | CWE-327 | **True Positive (Duplicate)** | Replaced with SHA-256. |
+| Dockerfile missing `USER` | 1 | CWE-250 | **True Positive** | Non-root `USER` directive added to the Dockerfile. |
+| MD5 use (Semgrep built-in) | 1 | CWE-327 | **True Positive — Duplicate (Rule Overlap)** | Deduplicated with custom rule; replaced with SHA-256. |
+| MD5 use (Custom `ban-hashlib-md5`) | 1 | CWE-327 | **True Positive — Duplicate (Rule Overlap)** | Replaced with SHA-256. |
 | Hardcoded `dummy_password_123` | 1 | CWE-798 | **False Positive** | Suppressed via `# nosemgrep`. |
 
 *(Note: Duplicate findings for MD5 showcase the necessity of rule deduplication to maintain a healthy signal-to-noise ratio).*
